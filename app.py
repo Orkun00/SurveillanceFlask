@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import traceback
 from face_recog_lib import get_face_embedding, compare_faces
-from face_recog_lib.face import get_face_embedding_ndarray
+
 
 app = Flask(__name__)
 
@@ -44,7 +44,7 @@ def detect():
             }), 500
 
         # How to use insightface
-        embedding1 = get_face_embedding_ndarray(image)
+        embedding1 = get_face_embedding(image)
 
 
         return jsonify({
