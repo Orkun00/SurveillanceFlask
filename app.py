@@ -30,7 +30,7 @@ def detect():
         except Exception as e:
             return jsonify({
                 'success': False,
-                'error': 'Failed to read file as bytes. The file might be corrupted or unreadable.'
+                'error': 'Failed to read file as bytes. The file might be corrupted or unreadable. Error: ' + str(e)
             }), 500
 
         # Attempt to decode the image from the byte array
@@ -47,7 +47,6 @@ def detect():
         print("Image shape:", image_shape)
 
         # How to use insightface
-
 
 
         return jsonify({
