@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import traceback
 from face_recog_lib import get_face_embedding, compare_faces
+from face_recog_lib.face import get_face_embedding_ndarray
 
 app = Flask(__name__)
 
@@ -13,7 +14,7 @@ def detect():
         if 'image' not in request.files:
             return jsonify({
                 'success': False,
-                'er0ror': 'No image file part in the request. Make sure you include an image file.'
+                'error': 'No image file part in the request. Make sure you include an image file.'
             }), 400
 
         file = request.files['image']
@@ -42,17 +43,13 @@ def detect():
                           'is not a valid image format or it is corrupted.')
             }), 500
 
-        # Process the image (for example, get its shape)
-        image_shape = image.shape
-        print("Image shape:", image_shape)
-
         # How to use insightface
+        embedding1 = get_face_embedding_ndarray(image)
 
 
         return jsonify({
             'success': True,
             'message': 'Image successfully received and processed.',
-            'shape': image_shape
         }), 200
 
     except Exception as e:
