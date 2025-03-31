@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import cv2
 import numpy as np
 import traceback
+from face_recog_lib import get_face_embedding, compare_faces
 
 app = Flask(__name__)
 
@@ -45,6 +46,10 @@ def detect():
         image_shape = image.shape
         print("Image shape:", image_shape)
 
+        # How to use insightface
+
+
+
         return jsonify({
             'success': True,
             'message': 'Image successfully received and processed.',
@@ -58,6 +63,8 @@ def detect():
             'success': False,
             'error': 'An unexpected error occurred: ' + str(e)
         }), 500
+
+
 
 if __name__ == '__main__':
     app.run("0,0.0.0", 5000, debug=True, threaded=True)
