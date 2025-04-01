@@ -92,5 +92,41 @@ class FlaskImageTest(unittest.TestCase):
         self.assertIn('is_same', response.json)
         self.assertTrue(response.json['is_same'])
 
+    def test_batch_detect_with_valid_image(self):
+        # Try to read your test image from disk
+        try:
+            with open("test_image.jpg", "rb") as f:
+                image_data = f.read()
+        except FileNotFoundError:
+            self.skipTest("test_image.jpg not found. Please add a valid face image for testing.")
+
+        # Prepare a batch of images using the same test image file
+        data = {
+            'image': [
+                (io.BytesIO(image_data), 'test_image.jpg'),
+                (io.BytesIO(image_data), 'test_image.jpg'),
+                (io.BytesIO(image_data), 'test_image.jpg')
+            ]
+        }
+
+        # Post the batch request to the endpoint
+        response = self.client.post('/batch_detect', content_type='multipart/form-data', data=data)
+
+        # Verify the response status code and JSON response
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertTrue(json_data.get('success'))
+        self.assertEqual(json_data.get('message'), 'Batch processing completed.')
+        self.assertIn('results', json_data)
+        self.assertEqual(len(json_data['results']), 3)
+
+        # Validate each result in the batch response
+        for result in json_data['results']:
+            self.assertIn('filename', result)
+            # Each result should have either an 'embedding' (if processing succeeded)
+            # or an 'error' if something went wrong.
+            print(result)
+            self.assertTrue('embedding' in result or 'error' in result)
+
 if __name__ == '__main__':
     unittest.main()
