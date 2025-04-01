@@ -23,23 +23,23 @@ def four_point_transform(image, pts):
     (tl, tr, br, bl) = rect
 
     # Compute width and height of the new image
-    widthA = np.linalg.norm(br - bl)
-    widthB = np.linalg.norm(tr - tl)
-    maxWidth = max(int(widthA), int(widthB))
+    width_a = np.linalg.norm(br - bl)
+    width_b = np.linalg.norm(tr - tl)
+    max_width = max(int(width_a), int(width_b))
 
-    heightA = np.linalg.norm(tr - br)
-    heightB = np.linalg.norm(tl - bl)
-    maxHeight = max(int(heightA), int(heightB))
+    height_a = np.linalg.norm(tr - br)
+    height_b = np.linalg.norm(tl - bl)
+    max_height = max(int(height_a), int(height_b))
 
     # Define destination points for a "birds eye view"
     dst = np.array([
         [0, 0],
-        [maxWidth - 1, 0],
-        [maxWidth - 1, maxHeight - 1],
-        [0, maxHeight - 1]], dtype="float32")
+        [max_width - 1, 0],
+        [max_width - 1, max_height - 1],
+        [0, max_height - 1]], dtype="float32")
 
-    M = cv2.getPerspectiveTransform(rect, dst)
-    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+    m = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, m, (max_width, max_height))
     return warped
 
 def detect_license_plate(image):
@@ -80,7 +80,7 @@ def upscale_image(image, model_path="EDSR_x4.pb", model_name="edsr", scale=4):
 def preprocess_for_ocr(image):
     # Convert to grayscale and apply Otsu's thresholding for binary image
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return thresh
 
 def extract_plate_text(image_path, super_res_model_path="EDSR_x4.pb", super_res_model_name="edsr", scale=4, tesseract_config="--psm 7"):
