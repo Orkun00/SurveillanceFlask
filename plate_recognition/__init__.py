@@ -1,0 +1,1 @@
+from plate import detect_license_plate
