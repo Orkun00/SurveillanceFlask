@@ -4,7 +4,6 @@ import numpy as np
 import traceback
 from face_recog_lib import get_face_embedding, compare_faces
 
-
 app = Flask(__name__)
 
 @app.route('/detect', methods=['POST'])
@@ -45,11 +44,12 @@ def detect():
 
         # How to use insightface
         embedding1 = get_face_embedding(image)
-
+        embedding2 = get_face_embedding(image)
 
         return jsonify({
             'success': True,
             'message': 'Image successfully received and processed.',
+            'is_same': bool(compare_faces(embedding1, embedding2)),
         }), 200
 
     except Exception as e:
