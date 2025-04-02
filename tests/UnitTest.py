@@ -1,9 +1,13 @@
+import os
 import unittest
 import io
+import zipfile
+
 import cv2
 import numpy as np
 from unittest.mock import patch
 from app import app
+
 
 class FlaskImageTest(unittest.TestCase):
 
@@ -76,7 +80,7 @@ class FlaskImageTest(unittest.TestCase):
         Ensure that 'test_image.jpg' is a valid face image available in your test directory.
         """
         try:
-            with open("test_image.jpg", "rb") as img:
+            with open("../photos/test_image.jpg", "rb") as img:
                 data = {
                     'image': (io.BytesIO(img.read()), 'test_image.jpg')
                 }
@@ -95,7 +99,7 @@ class FlaskImageTest(unittest.TestCase):
     def test_batch_detect_with_valid_image(self):
         # Try to read your test image from disk
         try:
-            with open("test_image.jpg", "rb") as f:
+            with open("../photos/test_image.jpg", "rb") as f:
                 image_data = f.read()
         except FileNotFoundError:
             self.skipTest("test_image.jpg not found. Please add a valid face image for testing.")
@@ -127,6 +131,50 @@ class FlaskImageTest(unittest.TestCase):
             # or an 'error' if something went wrong.
             print(result)
             self.assertTrue('embedding' in result or 'error' in result)
+
+    def test_clustering_three_unique_faces(self):
+        image_paths = [
+            "../photos/person1.jpg",
+            "../photos/person0.jpg",
+            "../photos/person0same.jpg"
+        ]
+
+        # Make sure all images exist
+        for path in image_paths:
+            if not os.path.exists(path):
+                self.skipTest(f"Image not found: {path}. Please provide all 3 images.")
+
+        # Create in-memory zip of the images
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zipf:
+            for idx, path in enumerate(image_paths):
+                with open(path, 'rb') as img_file:
+                    zipf.writestr(f"person{idx + 1}.jpg", img_file.read())
+        zip_buffer.seek(0)
+
+        # Send the zip file to the batch_detect endpoint
+        data = {
+            'zipfile': (zip_buffer, 'test_faces.zip')
+        }
+
+        response = self.client.post('/batch_detect', content_type='multipart/form-data', data=data)
+        self.assertEqual(response.status_code, 200)
+
+        json_data = response.get_json()
+        self.assertTrue(json_data['success'])
+        self.assertEqual(json_data['message'], 'Clustering completed.')
+        self.assertIn('clustered_results', json_data)
+        self.assertEqual(len(json_data['clustered_results']), 3)
+
+        # Extract cluster IDs from results
+        cluster_ids = [res['cluster_id'] for res in json_data['clustered_results']]
+        unique_clusters = set(cluster_ids)
+
+        print("Cluster IDs:", cluster_ids)
+
+        # Since these are three different people, we expect 3 clusters
+        self.assertEqual(len(unique_clusters), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

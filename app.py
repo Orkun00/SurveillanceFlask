@@ -3,7 +3,9 @@ import cv2
 import numpy as np
 import traceback
 from face_recog_lib import get_face_embedding, compare_faces
-
+from sklearn.cluster import DBSCAN
+import zipfile
+import io
 app = Flask(__name__)
 
 @app.route('/detect', methods=['POST'])
@@ -63,59 +65,58 @@ def detect():
 @app.route('/batch_detect', methods=['POST'])
 def batch_detect():
     try:
-        if 'image' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No image file part in the request. Make sure you include an image file.'
-            }), 400
+        if 'zipfile' not in request.files:
+            return jsonify({'success': False, 'error': 'No zip file found in request.'}), 400
 
-        files = request.files.getlist('image')
-        if not files or len(files) == 0:
-            return jsonify({
-                'success': False,
-                'error': 'No files selected for uploading. Please choose at least one image file.'
-            }), 400
+        zip_file = request.files['zipfile']
+        zip_buffer = io.BytesIO(zip_file.read())
 
+        embeddings = []
+        filenames = []
         results = []
-        for file in files:
-            file_results = {'filename': file.filename}
-            if file.filename == '':
-                file_results['error'] = 'No file selected for this entry.'
-                results.append(file_results)
-                continue
-            try:
-                file_bytes = np.frombuffer(file.read(), np.uint8)
-            except Exception as e:
-                file_results['error'] = 'Failed to read file as bytes. The file might be corrupted or unreadable. Error: ' + str(e)
-                results.append(file_results)
-                continue
 
-            image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-            if image is None:
-                file_results['error'] = 'Image decode failed. This might be because the uploaded file is not a valid image format or it is corrupted.'
-                results.append(file_results)
-                continue
+        with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
+            for filename in zip_ref.namelist():
+                try:
+                    file_data = zip_ref.read(filename)
+                    file_bytes = np.frombuffer(file_data, np.uint8)
+                    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-            try:
-                embedding = get_face_embedding(image)
-                file_results['embedding'] = embedding.tolist()
-            except Exception as e:
-                file_results['error'] = 'Face detection or embedding failed. Error: ' + str(e)
+                    if image is None:
+                        results.append({'filename': filename, 'error': 'Image decode failed.'})
+                        continue
 
-            results.append(file_results)
+                    embedding = get_face_embedding(image)
+                    embeddings.append(embedding)
+                    filenames.append(filename)
+
+                except Exception as e:
+                    results.append({'filename': filename, 'error': str(e)})
+
+        if not embeddings:
+            return jsonify({'success': False, 'error': 'No valid embeddings extracted.'}), 400
+
+        embeddings_array = np.vstack(embeddings)  # shape (N, 512)
+
+        clustering_model = DBSCAN(eps=0.6, min_samples=1, metric='cosine')
+        clustering_model.fit(embeddings_array)
+
+        labels = clustering_model.labels_
+
+        clustered_results = []
+        for filename, label in zip(filenames, labels):
+            clustered_results.append({'filename': filename, 'cluster_id': int(label)})
 
         return jsonify({
             'success': True,
-            'message': 'Batch processing completed.',
-            'results': results
+            'message': 'Clustering completed.',
+            'num_clusters': len(set(labels)),
+            'clustered_results': clustered_results
         }), 200
+
     except Exception as e:
-        # Print the traceback for debugging purposes
         traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred: ' + str(e)
-        }), 500
+        return jsonify({'success': False, 'error': 'Unexpected error: ' + str(e)}), 500
 
 
 if __name__ == '__main__':
