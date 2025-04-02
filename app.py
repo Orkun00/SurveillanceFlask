@@ -71,9 +71,8 @@ def batch_detect():
         zip_file = request.files['zipfile']
         zip_buffer = io.BytesIO(zip_file.read())
 
-        embeddings = []
-        filenames = []
-        results = []
+        all_embeddings = []
+        face_info_list = []
 
         with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
             for filename in zip_ref.namelist():
@@ -83,29 +82,42 @@ def batch_detect():
                     image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
                     if image is None:
-                        results.append({'filename': filename, 'error': 'Image decode failed.'})
+                        face_info_list.append({'filename': filename, 'error': 'Image decode failed.'})
                         continue
 
-                    embedding = get_face_embedding(image)
-                    embeddings.append(embedding)
-                    filenames.append(filename)
+                    faces = get_face_embedding(image)
+                    if not isinstance(faces, list):
+                        raise ValueError("get_face_embedding must return a list of face objects")
+
+                    for idx, face in enumerate(faces):
+                        embedding = face.embedding  # ✅ Extract the actual embedding from the face object
+
+                        if not isinstance(embedding, np.ndarray):
+                            raise ValueError(f"Face {idx} in {filename} does not contain a valid NumPy embedding")
+
+                        all_embeddings.append(embedding)
+                        face_info_list.append({
+                            'filename': filename,
+                            'face_index': idx
+                        })
 
                 except Exception as e:
-                    results.append({'filename': filename, 'error': str(e)})
+                    face_info_list.append({'filename': filename, 'error': str(e)})
 
-        if not embeddings:
-            return jsonify({'success': False, 'error': 'No valid embeddings extracted.'}), 400
+        if not all_embeddings:
+            return jsonify({'success': False, 'error': 'No face embeddings extracted.'}), 400
 
-        embeddings_array = np.vstack(embeddings)  # shape (N, 512)
+        embeddings_array = np.vstack(all_embeddings)
 
         clustering_model = DBSCAN(eps=0.6, min_samples=1, metric='cosine')
         clustering_model.fit(embeddings_array)
-
         labels = clustering_model.labels_
 
         clustered_results = []
-        for filename, label in zip(filenames, labels):
-            clustered_results.append({'filename': filename, 'cluster_id': int(label)})
+        for face_info, cluster_id in zip(face_info_list, labels):
+            result = face_info.copy()
+            result['cluster_id'] = int(cluster_id)
+            clustered_results.append(result)
 
         return jsonify({
             'success': True,
@@ -117,7 +129,6 @@ def batch_detect():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': 'Unexpected error: ' + str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run("0,0.0.0", 5000, debug=True, threaded=True)

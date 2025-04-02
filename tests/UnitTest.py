@@ -134,15 +134,15 @@ class FlaskImageTest(unittest.TestCase):
 
     def test_clustering_three_unique_faces(self):
         image_paths = [
-            "../photos/person1.jpg",
-            "../photos/person0.jpg",
-            "../photos/person0same.jpg"
+            "../photos/person1.jpg",  # Unique person
+            "../photos/person0.jpg",  # Same person as...
+            "../photos/person0same.jpg"  # ...this one
         ]
 
         # Make sure all images exist
         for path in image_paths:
             if not os.path.exists(path):
-                self.skipTest(f"Image not found: {path}. Please provide all 3 images.")
+                self.skipTest(f"Image not found: {path}")
 
         # Create in-memory zip of the images
         zip_buffer = io.BytesIO()
@@ -164,15 +164,24 @@ class FlaskImageTest(unittest.TestCase):
         self.assertTrue(json_data['success'])
         self.assertEqual(json_data['message'], 'Clustering completed.')
         self.assertIn('clustered_results', json_data)
-        self.assertEqual(len(json_data['clustered_results']), 3)
 
-        # Extract cluster IDs from results
-        cluster_ids = [res['cluster_id'] for res in json_data['clustered_results']]
+        clustered_results = json_data['clustered_results']
+        print("Clustered Results:", clustered_results)
+
+        # Check that each result has a filename, face_index, and cluster_id
+        for result in clustered_results:
+            self.assertIn('filename', result)
+            self.assertIn('face_index', result)
+            self.assertIn('cluster_id', result)
+
+        # Extract all cluster IDs
+        cluster_ids = [result['cluster_id'] for result in clustered_results]
         unique_clusters = set(cluster_ids)
 
         print("Cluster IDs:", cluster_ids)
 
-        # Since these are three different people, we expect 3 clusters
+        # Since person0.jpg and person0same.jpg should belong to the same person,
+        # we expect 2 unique clusters total
         self.assertEqual(len(unique_clusters), 2)
 
 

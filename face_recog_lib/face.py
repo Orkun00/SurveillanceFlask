@@ -39,7 +39,7 @@ def get_face_embedding(image_input):
     if len(faces) > 1:
         print("Warning: Multiple faces detected. Using first detected face")
 
-    return faces[0].embedding
+    return faces
 
 def compare_faces(emb1, emb2, threshold=0.65):
     """
