@@ -6,6 +6,7 @@ from face_recog_lib import get_face_embedding, compare_faces
 from sklearn.cluster import DBSCAN
 import zipfile
 import io
+from typing import Dict, Union
 app = Flask(__name__)
 
 @app.route('/detect', methods=['POST'])
@@ -90,16 +91,17 @@ def batch_detect():
                         raise ValueError("get_face_embedding must return a list of face objects")
 
                     for idx, face in enumerate(faces):
-                        embedding = face.embedding  # ✅ Extract the actual embedding from the face object
+                        embedding = face.embedding  # Extract the actual embedding from the face object
 
                         if not isinstance(embedding, np.ndarray):
                             raise ValueError(f"Face {idx} in {filename} does not contain a valid NumPy embedding")
 
                         all_embeddings.append(embedding)
-                        face_info_list.append({
+                        face_info: Dict[str, Union[str, int]] = {
                             'filename': filename,
                             'face_index': idx
-                        })
+                        }
+                        face_info_list.append(face_info)
 
                 except Exception as e:
                     face_info_list.append({'filename': filename, 'error': str(e)})
